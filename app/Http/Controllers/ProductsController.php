@@ -23,18 +23,24 @@ class ProductsController extends Controller
     }
     */
 
-    public function __construct(Products $products)
+    public $companies;
+    public $product;
+
+    //インスタンス生成
+    public function __construct()
     {
-        $this->products = $products;
+        $this->products = new Products();
+        $this->companies = new Companies();
     }
 
+    //productsとcompaniesの結合・companiesの取得
     public function index()
     {
         $product = $this->products->findAllProductsWithCompanies();
         
-        $companies = companies::all();
+        $company = $this->companies->getData();
         
-        return view('product', ['product'=>$product, 'companies'=>$companies]);
+        return view('product', ['product'=>$product, 'companies'=>$company]);
     }
     
 
@@ -46,7 +52,15 @@ class ProductsController extends Controller
     /* 登録処理*/
     public function store(Request $request)
     {
-        $registerProduct = $this->products->InsertProduct($request);
+        DB::beginTransaction();
+        try {
+            $registerProduct = $this->products->InsertProduct($request);
+
+            DB::commit();
+        } catch (Exception $e) {
+
+            DB::rollback();
+        }
         return redirect()->route('newproduct.store');
     }
 
@@ -54,7 +68,8 @@ class ProductsController extends Controller
     /*詳細画面の表示*/
     public function show($id)
     {
-        $product = Products::find($id);
+        $product = $this->products->find($id);
+        //$product = Products::find($id);
 
         return view('show', ['p'=>$product]);
     }
@@ -62,11 +77,11 @@ class ProductsController extends Controller
     /* 編集画面の表示 */
     public function edit($id)
     {
-        $product = Products::find($id);
+        $product = $this->products->find($id);
 
-        $companies = companies::all();
+        $company = $this->companies->getData();
 
-        return view('edit', ['p'=>$product, 'companies'=>$companies]);
+        return view('edit', ['p'=>$product, 'companies'=>$company]);
     }
 
     
@@ -74,49 +89,46 @@ class ProductsController extends Controller
     public function search(Request $request)
     {
     //$keyword = $request->input('keyword');
-    $request->keyword;
-    
-    $request->company_search;
-    
-    $query = Products::query();
+        $result = $this->products->seachProduct($request);
 
-    if(!empty($request->keyword))
-    {
-        $query->where('product_name','like','%'.$request->keyword.'%');
+        $company = $this->companies->getData();
+    
+        return view('product',['product'=>$result, 'companies'=>$company]);
     }
 
-    if($request->company_search && $request->company_search != 0){
-        //dd($request);
-        $query->where('company_id',"=",$request->company_search);
-    }
-
-    $result = $query->leftJoin('companies', 'products.company_id', '=', 'companies.id')
-            ->select('products.*', 'companies.company_name')->get();
-
-    $companies = companies::all();
-    
-    return view('product',['product'=>$result, 'companies'=>$companies]);
-    }
-
-  /* 更新処理 */
+    /* 更新処理 */
     public function update(Request $request, $id)
     {
-        $product = Products::find($id);
+        DB::beginTransaction();
+        try {
+            //$product = $this->products->find($id);
 
-        $updateProduct = $this->products->updateProduct($request, $product);
+            $updateProduct = $this->products->updateProduct($request, $id);
+// 
+            //$product = $this->products->find($id);
 
-        $product = Products::find($id);
+        } catch (Exception $e) {
+            DB::rollback();
+        }        
+        //dd($updateProduct);
 
-        $companies = companies::all();
+        $company = $this->companies->getData();
 
-        return view('edit',['p'=>$product, 'companies'=>$companies]);
+
+        return view('edit',['p'=>$updateProduct, 'companies'=>$company]);
     }
 
-  /* 削除処理 */
+    /* 削除処理 */
     public function destroy($id)
     {
          // 指定されたIDのレコードを削除
-        $deleteProduct = $this->products->deleteProductById($id);
+        DB::beginTransaction();
+        try {
+            $deleteProduct = $this->products->deleteProductById($id);
+        } catch (Exception $e) {
+            DB::rollback();
+        }
+        
         // 削除したら一覧画面にリダイレクト
         return redirect()->route('products.index');
     }

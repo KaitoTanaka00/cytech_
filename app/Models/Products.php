@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class Products extends Model
@@ -13,24 +14,54 @@ class Products extends Model
     // モデルに関連付けるテーブル
     protected $table = 'products';
 
-
     //Companiesモデルとリレーション
     public function company()
     {
         return $this->belongsTo('App\Models\Companies');
     }
 
-    /*
-     public static function leftJoin()
+    //productsのDB取得
+    public function getProduct()
     {
-    $product = DB::table('products')
-                ->leftJoin('companies', 'products.company_id', '=', 'companies.id')
-                ->select('products.*', 'companies.company_name')
-                ->distinct()
-                ->get();
-    }
-    */
+        $product = DB::table($this->table)->get();
 
+        return $product;
+    }
+
+    //productsのidを取得
+    public function find($id)
+    {
+        $findProduct = DB::table($this->table)
+        ->select('products.*', 'companies.company_name')
+        ->where('products.id',$id)
+        ->leftJoin('companies', 'products.company_id', '=', 'companies.id')
+        ->first();
+        
+        // dd($findProduct);
+
+        return $findProduct;
+    }
+
+    //検索処理
+    public function seachProduct(Request $request)
+    {
+        $query = DB::table($this->table);
+        
+        if(!empty($request->keyword))
+        {
+            $query->where('product_name','like','%'.$request->keyword.'%');
+        }
+
+        if($request->company_search && $request->company_search != 0){
+        //dd($request);
+            $query->where('company_id',"=",$request->company_search);
+        }
+
+        $result = $query->leftJoin('companies', 'products.company_id', '=', 'companies.id')
+            ->select('products.*', 'companies.company_name')->get();
+
+        return $result;
+    }
 
     // テーブルに関連付ける主キー
     protected $primaryKey = 'id';
@@ -46,16 +77,8 @@ class Products extends Model
         'created_at',
         'updated_at'
     ];
-    
-    /**
-     * 一覧画面表示用にproductsテーブルから全てのデータを取得
-     
-    public function findAllProducts()
-    {
-        return products::all();
-    }
-    */
 
+    //productsとcompaniesの結合
     public function findAllProductsWithCompanies()
     {
         $products = DB::table('products')
@@ -65,7 +88,7 @@ class Products extends Model
         return $products;
     }
 
-    
+    //登録処理
     public function InsertProduct($request)
     {
         // リクエストデータを基に登録する
@@ -80,16 +103,21 @@ class Products extends Model
     }
 
     //編集
-    public function updateProduct($request, $product)
+    public function updateProduct($request, $id)
     {
-        $result = $product->fill([
+        \DB::table($this->table)
+        ->where('products.id', $id)
+        ->update([
             'product_name'          => $request->product_name,
             'company_id'            => $request->company_id,
             'price'                 => $request->price,
             'stock'                 => $request->stock,
             'comment'               => $request->comment,
             'img_path'              => $request->img_path,
-        ])->save();
+        ]);
+
+        $result = $this->find($id);        
+        //dd($result);
 
         return $result;
     }
