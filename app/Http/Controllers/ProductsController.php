@@ -106,7 +106,7 @@ class ProductsController extends Controller
             $updateProduct = $this->products->updateProduct($request, $id);
 // 
             //$product = $this->products->find($id);
-
+            DB::commit();
         } catch (Exception $e) {
             DB::rollback();
         }        
@@ -125,6 +125,7 @@ class ProductsController extends Controller
         DB::beginTransaction();
         try {
             $deleteProduct = $this->products->deleteProductById($id);
+            DB::commit();
         } catch (Exception $e) {
             DB::rollback();
         }
